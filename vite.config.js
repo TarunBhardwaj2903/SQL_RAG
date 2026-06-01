@@ -8,6 +8,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    // Dev proxy — routes /api to local FastAPI server
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

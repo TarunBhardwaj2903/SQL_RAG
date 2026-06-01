@@ -1,7 +1,13 @@
 /**
  * API client to communicate with the FastAPI backend.
+ *
+ * In development: Vite proxies /api → http://localhost:8000
+ * In production:  Set VITE_API_BASE_URL to your deployed backend URL
+ *                 e.g. https://your-backend.railway.app
  */
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api`
+  : '/api';
 
 export async function queryBackend(question) {
   try {

@@ -47,13 +47,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Set up CORS middleware
+# Allowed origins — add your Vercel frontend URL here after deployment
+# e.g. "https://sql-rag.vercel.app"
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",       # Vite dev server
+    "http://localhost:4173",       # Vite preview
+    settings.FRONTEND_URL,         # Production Vercel URL (set in .env)
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development, allow all origins. Can be restricted to client port.
+    allow_origins=[o for o in ALLOWED_ORIGINS if o],  # Filter out empty strings
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Register routers
@@ -63,3 +70,8 @@ app.include_router(query_router, prefix="/api")
 async def health_check():
     """Simple health check endpoint."""
     return {"status": "ok", "database": "connected" if db_service.pool else "disconnected"}
+
+@app.get("/api/ping")
+async def ping():
+    """Lightweight ping endpoint — used by uptime monitors to prevent cold starts."""
+    return {"ping": "pong"}
