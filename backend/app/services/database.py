@@ -10,26 +10,32 @@ class DatabaseService:
     def __init__(self):
         self.pool: Optional[asyncpg.Pool] = None
 
-    async def initialize(self):
-        """Initialize the connection pool."""
-        if not self.pool:
+    async def initialize(self, retries: int = 3, delay: float = 2.0):
+        """Initialize the connection pool with retry logic."""
+        if self.pool:
+            return
+
+        last_error = None
+        for attempt in range(1, retries + 1):
             try:
-                # asyncpg does not support postgresql:// scheme directly in some settings, but standard urls are fine
-                # Let's ensure connection string is correct
-                db_url = settings.DATABASE_URL
-                if db_url.startswith("postgresql://"):
-                    # asyncpg handles postgresql:// just fine
-                    pass
                 self.pool = await asyncpg.create_pool(
-                    db_url,
+                    settings.DATABASE_URL,
                     min_size=1,
                     max_size=10,
                     command_timeout=30.0
                 )
                 logger.info("Database connection pool initialized.")
+                return
             except Exception as e:
-                logger.error(f"Failed to initialize database pool: {e}")
-                raise e
+                last_error = e
+                logger.warning(f"Database connection attempt {attempt}/{retries} failed: {e}")
+                if attempt < retries:
+                    logger.info(f"Retrying in {delay}s...")
+                    import asyncio
+                    await asyncio.sleep(delay)
+
+        logger.error(f"Failed to initialize database pool after {retries} attempts: {last_error}")
+        raise last_error
 
     async def close(self):
         """Close the connection pool."""
