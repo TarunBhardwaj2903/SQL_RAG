@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     RAG_CANDIDATE_COUNT: int = 10
     RAG_TOP_K: int = 5
     RAG_ENABLED: bool = True
+    
+    # Schema Tree Navigation
+    DOMAIN_TREE_ENABLED: bool = True
 
     # CORS — set this to your Vercel frontend URL in production
     # e.g. https://sql-rag.vercel.app

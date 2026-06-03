@@ -13,6 +13,8 @@ class QueryMeta(BaseModel):
     retries_used: int
     rag_retrieved_tables: Optional[List[dict]] = []
     rag_reranked_tables: Optional[List[dict]] = []
+    rag_domains_selected: Optional[List[str]] = []
+    rag_tables_searched: Optional[int] = None
 
 class QueryResponse(BaseModel):
     sql: str

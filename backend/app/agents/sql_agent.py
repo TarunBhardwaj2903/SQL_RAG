@@ -41,7 +41,7 @@ async def execute_with_self_correction(
     6. Summarize results and return the final payload.
     """
     # 1. Fetch schema context
-    schema_context, retrieved_tables, reranked_tables = await get_relevant_schema_context(db, question)
+    schema_context, retrieved_tables, reranked_tables, domains, tables_searched = await get_relevant_schema_context(db, question)
 
     # 2. Initial SQL generation
     sql = await llm.generate_sql(question, schema_context)
@@ -105,6 +105,8 @@ async def execute_with_self_correction(
             confidence=confidence,
             retries_used=retries,
             rag_retrieved_tables=retrieved_tables,
-            rag_reranked_tables=reranked_tables
+            rag_reranked_tables=reranked_tables,
+            rag_domains_selected=domains,
+            rag_tables_searched=tables_searched
         )
     )

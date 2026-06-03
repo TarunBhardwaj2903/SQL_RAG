@@ -36,7 +36,9 @@ export async function resolveQuery(query) {
         confidence: data.meta.confidence,
         retriesUsed: data.meta.retries_used,
         ragRetrievedTables: data.meta.rag_retrieved_tables,
-        ragRerankedTables: data.meta.rag_reranked_tables
+        ragRerankedTables: data.meta.rag_reranked_tables,
+        ragDomainsSelected: data.meta.rag_domains_selected ?? [],
+        ragTablesSearched: data.meta.rag_tables_searched ?? null
       }
     };
   } catch (error) {
