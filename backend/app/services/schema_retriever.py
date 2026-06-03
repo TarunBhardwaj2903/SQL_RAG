@@ -14,13 +14,6 @@ from app.services.domain_classifier import (
     classify_domains_by_embedding,
     get_tables_for_domains,
 )
-from app.services.domain_embeddings import get_domain_embeddings, find_relevant_schemas_filtered
-from app.services.domain_classifier import (
-    classify_domains_by_keywords,
-    classify_domains_by_embedding,
-    get_tables_for_domains,
-    DOMAIN_TREE
-)
 from app.services.domain_embeddings import get_domain_embeddings
 
 logger = logging.getLogger(__name__)
