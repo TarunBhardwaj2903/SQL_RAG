@@ -8,15 +8,15 @@
 import { queryBackend } from './apiClient';
 
 export const getLoadingSteps = () => [
-  { delay: 150,  text: '▶ Calling NVIDIA NIM API to generate query vector...',    color: 'text-cyan-400' },
-  { delay: 350,  text: '▶ Running similarity search in Supabase (pgvector)...',  color: 'text-cyan-400' },
-  { delay: 600,  text: '▶ Reranking candidates with llama-nemotron-rerank...',    color: 'text-indigo-400' },
-  { delay: 900,  text: '▶ Injecting selected schema context into Nemotron-4...',  color: 'text-indigo-400' },
-  { delay: 1300, text: '▶ Synthesizing optimized PostgreSQL query statement...',  color: 'text-yellow-400' },
-  { delay: 1700, text: '▶ Running query on Supabase production database...',      color: 'text-yellow-400' },
-  { delay: 2100, text: '▶ Executing query self-correction checks...',            color: 'text-green-400' },
+  { delay: 150,  text: '▶ Classifying query domain (sales / products / hr ...)...',  color: 'text-cyan-400' },
+  { delay: 350,  text: '▶ Calling NVIDIA NIM API to generate query vector...',        color: 'text-cyan-400' },
+  { delay: 600,  text: '▶ Running filtered similarity search in Supabase (pgvector)...', color: 'text-indigo-400' },
+  { delay: 900,  text: '▶ Selecting top schema candidates for LLM context...',        color: 'text-indigo-400' },
+  { delay: 1300, text: '▶ Synthesizing optimized PostgreSQL query statement...',       color: 'text-yellow-400' },
+  { delay: 1700, text: '▶ Running query on Supabase production database...',           color: 'text-yellow-400' },
+  { delay: 2100, text: '▶ Executing query self-correction checks...',                  color: 'text-green-400' },
   { delay: 2500, text: '▶ Formatting result set & synthesizing executive summary...', color: 'text-purple-400' },
-  { delay: 2800, text: '✔ Done — rendering results.',                            color: 'text-emerald-400' },
+  { delay: 2800, text: '✔ Done — rendering results.',                                 color: 'text-emerald-400' },
 ];
 
 // ─── Main query resolver ───────────────────────────────────────────────────
