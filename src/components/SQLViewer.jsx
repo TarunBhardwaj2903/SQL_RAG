@@ -188,6 +188,26 @@ export default function SQLViewer({ sql, meta, isOpen, onToggle }) {
             </div>
           )}
 
+          {/* ── Domain Badges (Schema Tree Navigation) ── */}
+          {meta?.ragDomainsSelected?.length > 0 && (
+            <div className="px-4 py-2 border-b border-slate-700/50 flex items-center gap-2 flex-wrap bg-slate-900/50">
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider shrink-0">
+                Domains
+              </span>
+              {meta.ragDomainsSelected.map(d => (
+                <span key={d} className="px-2 py-0.5 rounded-full text-[10px]
+                                          bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 font-medium">
+                  {d}
+                </span>
+              ))}
+              {meta.ragTablesSearched != null && (
+                <span className="ml-auto text-[10px] text-slate-600 shrink-0">
+                  searched {meta.ragTablesSearched} of 87 tables
+                </span>
+              )}
+            </div>
+          )}
+
           {/* ── RAG Debug Panel ── */}
           {meta && (meta.ragRetrievedTables?.length > 0 || meta.ragRerankedTables?.length > 0) ? (
             <div className="px-4 py-3 bg-slate-900/60 border-b border-slate-700/50">

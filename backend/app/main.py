@@ -22,6 +22,11 @@ async def lifespan(app: FastAPI):
     try:
         await db_service.initialize()
         
+        # Initialize domain embeddings for Schema Tree Navigation
+        if settings.DOMAIN_TREE_ENABLED:
+            from app.services.domain_embeddings import initialize_domain_embeddings
+            await initialize_domain_embeddings()
+        
         # Check if RAG is enabled and schema embeddings table is empty
         if settings.RAG_ENABLED and db_service.pool:
             async with db_service.pool.acquire() as conn:

@@ -7,7 +7,14 @@ from app.config import settings
 # Lazy imports to avoid circular dependency
 from app.services.embedding_service import embedding_service
 from app.services.reranker_service import reranker_service
-from app.services.vector_search import find_relevant_schemas
+from app.services.vector_search import find_relevant_schemas_filtered
+from app.services.domain_classifier import (
+    DOMAIN_TREE,
+    classify_domains_by_keywords,
+    classify_domains_by_embedding,
+    get_tables_for_domains,
+)
+from app.services.domain_embeddings import get_domain_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -133,41 +140,81 @@ async def get_schema_context(db: DatabaseService, bypass_cache: bool = False) ->
 async def get_relevant_schema_context(
     db: DatabaseService,
     user_query: str
-) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]], List[str], int]:
     """
-    RAG-based schema retrieval:
+    Domain-aware RAG-based schema retrieval:
+    0. Domain classification (keyword first, embedding fallback).
     1. Call embedding API for user query.
-    2. Vector search in pgvector table to get top RAG_CANDIDATE_COUNT candidates.
-    3. Rerank the candidates using NVIDIA rerank NIM to top RAG_TOP_K.
-    4. Compile the schema string of selected tables.
+    2. Vector search in pgvector table (filtered by domain) to get top RAG_CANDIDATE_COUNT candidates.
+    3. Zero-results retry with full table set if needed.
+    4. Select top RAG_TOP_K tables.
+    5. Compile the schema string of selected tables.
     Returns:
         schema_text: formatted string containing only the top relevant schemas.
         retrieved_tables: details of top vector-search matched tables.
         reranked_tables: details of top reranked tables.
+        domains: list of selected domains.
+        tables_searched: number of tables in the search pool.
     """
     # Fallback checking
     if not settings.RAG_ENABLED:
         logger.info("RAG is disabled. Falling back to full schema context.")
         full_context = await get_schema_context(db)
-        return full_context, [], []
+        return full_context, [], [], list(DOMAIN_TREE.keys()), 87
 
     try:
-        # Step 1: Embed query
-        query_vector = await embedding_service.embed_query(user_query)
+        # Stage 0: Domain classification (keyword first, embed fallback)
+        domains = []
+        table_filter = None
+        query_vector = None
+        
+        if settings.DOMAIN_TREE_ENABLED:
+            domains = classify_domains_by_keywords(user_query)
+            if not domains:
+                # Embed fallback — reuse the query vector computed below
+                query_vector = await embedding_service.embed_query(user_query)
+                domain_embs = get_domain_embeddings()
+                if domain_embs:
+                    domains = await classify_domains_by_embedding(query_vector, domain_embs)
+                else:
+                    domains = list(DOMAIN_TREE.keys())
+            
+            table_filter = get_tables_for_domains(domains)
+            logger.info(f"Domains: {domains} → {len(table_filter)} tables in scope")
+        else:
+            domains = list(DOMAIN_TREE.keys())
+
+        # Step 1: Embed query (if not already done for fallback)
+        if query_vector is None:
+            query_vector = await embedding_service.embed_query(user_query)
+        
         if not query_vector:
             raise Exception("Failed to generate embedding for query.")
 
-        # Step 2: Vector search
-        candidates = await find_relevant_schemas(
+        # Step 2: Filtered vector search
+        candidates = await find_relevant_schemas_filtered(
             db, 
             query_vector, 
-            top_k=settings.RAG_CANDIDATE_COUNT
+            top_k=settings.RAG_CANDIDATE_COUNT,
+            table_filter=table_filter
         )
+
+        # Stage 2: Zero-results safety retry (new in v2)
+        if not candidates and table_filter:
+            logger.warning(f"0 results for domains={domains}. Retrying unfiltered.")
+            candidates = await find_relevant_schemas_filtered(
+                db, 
+                query_vector,
+                top_k=settings.RAG_CANDIDATE_COUNT,
+                table_filter=None
+            )
+            domains = list(DOMAIN_TREE.keys())
+            table_filter = None
         
         if not candidates:
             logger.warning("No schema candidates found in vector search. Falling back to full schema.")
             full_context = await get_schema_context(db)
-            return full_context, [], []
+            return full_context, [], [], list(DOMAIN_TREE.keys()), 87
 
         # Formulate candidates info for debugging
         retrieved_tables = [
@@ -175,10 +222,8 @@ async def get_relevant_schema_context(
             for c in candidates
         ]
 
-        # Step 3: Rerank (DISABLED - using top vector search results directly)
+        # Step 3: Simply take the top RAG_TOP_K candidates from vector search
         logger.info(f"Skipping reranking. Using top {settings.RAG_TOP_K} vector search results directly.")
-        
-        # Simply take the top RAG_TOP_K candidates from vector search
         selected_candidates = candidates[:settings.RAG_TOP_K]
         
         # Formulate reranked info for debugging
@@ -199,11 +244,13 @@ async def get_relevant_schema_context(
 
         schema_str = "\n".join(lines)
         
+        tables_searched = len(table_filter) if table_filter else 87
+        
         logger.info(f"RAG successfully selected {len(selected_candidates)} tables out of {len(candidates)} candidates.")
-        return schema_str, retrieved_tables, reranked_tables
+        return schema_str, retrieved_tables, reranked_tables, domains, tables_searched
 
     except Exception as e:
-        logger.error(f"Error in RAG schema retrieval: {e}. Falling back to full schema.")
+        logger.error(f"Domain-aware RAG failed: {e}. Falling back to full schema.")
         full_context = await get_schema_context(db)
-        return full_context, [], []
+        return full_context, [], [], list(DOMAIN_TREE.keys()), 87
 
