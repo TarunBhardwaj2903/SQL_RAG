@@ -1,16 +1,18 @@
 -- =============================================================
 -- Migration: Schema Tree Navigation — filtered match_schemas
 -- =============================================================
--- SAFE: adds a NEW 3-argument overload only.
--- The existing 2-argument function is NOT touched.
+-- SAFE: drops only the conflicting 3-arg overload (if it exists),
+-- then recreates it cleanly. The 2-arg original is NOT touched.
 -- Run once in Supabase SQL Editor.
 -- =============================================================
 
--- Step 1: Add the new 3-arg overload (domain-filtered search)
--- DO NOT modify the existing rag.match_schemas(vector, int) function.
-CREATE OR REPLACE FUNCTION rag.match_schemas(
+-- Step 1: Drop the conflicting 3-arg overload only (safe — 2-arg untouched)
+DROP FUNCTION IF EXISTS rag.match_schemas(extensions.vector, integer, text[]);
+
+-- Step 2: Recreate the clean 3-arg overload (no DEFAULT, no ambiguity)
+CREATE FUNCTION rag.match_schemas(
   query_embedding extensions.vector,
-  match_count     int,
+  match_count     integer,
   table_filter    text[]
 )
 RETURNS TABLE (
@@ -30,21 +32,9 @@ AS $$
 $$;
 
 -- =============================================================
--- Step 2: Verify both overloads exist
--- Run this SELECT to confirm — should return 2 rows.
+-- Step 3: Verify — should return 2 rows (pronargs 2 and 3)
 -- =============================================================
--- SELECT proname, pronargs
--- FROM   pg_proc
--- JOIN   pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
--- WHERE  nspname = 'rag' AND proname = 'match_schemas';
-
--- =============================================================
--- Step 3: Smoke test the new overload
--- Should return rows only for those 3 tables (ordered by similarity).
--- =============================================================
--- SELECT table_name, similarity
--- FROM rag.match_schemas(
---   (SELECT embedding FROM rag.schema_embeddings LIMIT 1),
---   5,
---   ARRAY['sales.customer', 'sales.salesorderheader', 'production.product']
--- );
+SELECT proname, pronargs
+FROM   pg_proc
+JOIN   pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
+WHERE  nspname = 'rag' AND proname = 'match_schemas';
