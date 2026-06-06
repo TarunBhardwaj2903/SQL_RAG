@@ -24,21 +24,22 @@ export async function resolveQuery(query) {
   try {
     const data = await queryBackend(query);
     return {
-      sql: data.sql,
-      summary: data.summary,
-      columns: data.columns,
-      rows: data.rows,
+      sql:       data.sql,
+      summary:   data.summary,
+      columns:   data.columns,
+      rows:      data.rows,
+      chartSpec: data.chart_spec ?? null,   // pass through — null if table fallback
       meta: {
-        executionMs: data.meta.execution_ms,
-        rowsReturned: data.meta.rows_returned,
-        tablesScanned: data.meta.tables_scanned,
-        joinCount: data.meta.join_count,
-        confidence: data.meta.confidence,
-        retriesUsed: data.meta.retries_used,
+        executionMs:        data.meta.execution_ms,
+        rowsReturned:       data.meta.rows_returned,
+        tablesScanned:      data.meta.tables_scanned,
+        joinCount:          data.meta.join_count,
+        confidence:         data.meta.confidence,
+        retriesUsed:        data.meta.retries_used,
         ragRetrievedTables: data.meta.rag_retrieved_tables,
-        ragRerankedTables: data.meta.rag_reranked_tables,
+        ragRerankedTables:  data.meta.rag_reranked_tables,
         ragDomainsSelected: data.meta.rag_domains_selected ?? [],
-        ragTablesSearched: data.meta.rag_tables_searched ?? null
+        ragTablesSearched:  data.meta.rag_tables_searched ?? null
       }
     };
   } catch (error) {
