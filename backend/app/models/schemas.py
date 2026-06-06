@@ -1,8 +1,12 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any
+
+
+# ── Existing models (unchanged) ────────────────────────────────────────────
 
 class QueryRequest(BaseModel):
     question: str
+
 
 class QueryMeta(BaseModel):
     execution_ms: int
@@ -16,9 +20,76 @@ class QueryMeta(BaseModel):
     rag_domains_selected: Optional[List[str]] = []
     rag_tables_searched: Optional[int] = None
 
+
+# ── Chart Spec models (additive — do not touch QueryResponse fields above) ─
+
+class AxisDef(BaseModel):
+    """Describes one axis (x or y) of a chart."""
+    column: str                # raw column name from result set (used as dataKey)
+    label: str                 # normalized human-readable label shown to users
+    type: str                  # "categorical" | "temporal" | "numeric"
+
+
+class YAxisDef(BaseModel):
+    """Describes the Y-axis which can have multiple series."""
+    columns: List[str]         # raw column names
+    labels: List[str]          # normalized display labels
+    type: str = "numeric"
+    unit: Optional[str] = None # "$", "%", "units", or None
+
+
+class SeriesDef(BaseModel):
+    """Maps one data series to its display properties."""
+    column: str                # raw column name
+    name: str                  # normalized display label (shown in legend)
+    data_key: str              # positional key in data_transformed: __y0, __y1, …
+    color_index: int           # index into ACCESSIBLE_PALETTE on the frontend
+    y_axis_id: str = "left"    # "left" | "right" (dual-Y-axis support)
+
+
+class KPIValue(BaseModel):
+    """One metric tile for kpi_card / kpi_multi chart types."""
+    label: str
+    value: Any                 # kept flexible: string or number
+    unit: Optional[str] = None
+
+
+class ChartSpecMeta(BaseModel):
+    """Internal VDE diagnostics — not shown to users."""
+    row_count_original: int
+    row_count_rendered: int
+    vde_rule_matched: int
+    gap_fill_applied: bool = False
+
+
+class ChartSpec(BaseModel):
+    """
+    Full chart specification produced by the Visualization Decision Engine.
+    Consumed by ChartRouter on the frontend.
+    All data_transformed values use fixed positional keys (__x, __y0…)
+    to avoid column-name collisions.
+    """
+    chart_type: str            # bar|line|pie|donut|scatter|grouped_bar|
+                               # kpi_card|kpi_multi|table|empty_state
+    title: str                 # generated plain-English title, e.g.
+                               # "Top 10 Products by Revenue — Bar Chart"
+    x_axis: Optional[AxisDef] = None
+    y_axis: Optional[YAxisDef] = None
+    series: Optional[List[SeriesDef]] = None
+    dual_y_axis: bool = False
+    color_scheme: str = "accessible"
+    data_transformed: List[dict] = []
+    data_truncated: bool = False
+    kpi_values: Optional[List[KPIValue]] = None
+    meta: Optional[ChartSpecMeta] = None
+
+
+# ── Response model (chart_spec is additive + optional) ─────────────────────
+
 class QueryResponse(BaseModel):
     sql: str
     summary: str
     columns: List[str]
     rows: List[List[Optional[str]]]
     meta: QueryMeta
+    chart_spec: Optional[ChartSpec] = None  # None = table fallback; old clients ignore

@@ -43,13 +43,16 @@ class DatabaseService:
             await self.pool.close()
             logger.info("Database connection pool closed.")
 
-    async def execute_query(self, sql: str) -> Tuple[List[str], List[List[Optional[str]]], int]:
+    async def execute_query(self, sql: str) -> Tuple[List[str], List[List[Optional[str]]], int, List[str]]:
         """
         Execute raw SQL SELECT query.
         Returns:
             columns: list of column names
             rows: list of rows, where each row is a list of stringified values
             execution_ms: execution time in milliseconds
+            pg_column_types: list of PostgreSQL OID type names per column (extracted
+                             before stringification — used by the VDE for type-safe
+                             column classification without losing native type info)
         """
         if not self.pool:
             raise Exception("Database connection pool not initialized")
@@ -62,10 +65,24 @@ class DatabaseService:
                 execution_ms = int((time.time() - start_time) * 1000)
 
                 if not records:
-                    return [], [], execution_ms
+                    return [], [], execution_ms, []
 
                 # Extract columns
                 columns = list(records[0].keys())
+
+                # Extract PostgreSQL OID type names BEFORE stringification.
+                # asyncpg Record exposes column type info via the statement descriptor.
+                # This gives the VDE accurate type signals (int4, timestamp, varchar…)
+                # before all values are cast to str() below.
+                try:
+                    pg_column_types = [
+                        records[0].get_column_type(i).name
+                        for i in range(len(columns))
+                    ]
+                except Exception:
+                    # Fallback: if type extraction fails, use empty strings.
+                    # The VDE will fall back to value-pattern matching.
+                    pg_column_types = ["" for _ in columns]
 
                 # Convert records to list of lists (stringified values)
                 rows = []
@@ -76,7 +93,7 @@ class DatabaseService:
                         row_data.append(str(val) if val is not None else None)
                     rows.append(row_data)
 
-                return columns, rows, execution_ms
+                return columns, rows, execution_ms, pg_column_types
             except asyncpg.PostgresError as e:
                 logger.error(f"PostgreSQL error: {e} | Query: {sql}")
                 raise e

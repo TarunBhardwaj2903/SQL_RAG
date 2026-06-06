@@ -73,6 +73,7 @@ export default function App() {
         sql:        result.sql,
         meta:       result.meta,
         tableData:  { columns: result.columns, rows: result.rows },
+        chartSpec:  result.chartSpec ?? null,   // from VDE — null = table fallback
         isCodeOpen: false,
         timestamp:  timestamp(),
       };

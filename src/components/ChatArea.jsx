@@ -1,9 +1,17 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Bot, User, Sparkles } from 'lucide-react';
-import DataTable   from './DataTable';
-import SQLViewer   from './SQLViewer';
+import React, { useRef, useEffect, useState, lazy, Suspense } from 'react';
+import { Bot, User, Sparkles, BarChart2 } from 'lucide-react';
+import DataTable       from './DataTable';
+import SQLViewer       from './SQLViewer';
 import FeedbackButtons from './FeedbackButtons';
+import ChartToggleBar  from './charts/ChartToggleBar';
+import ChartVirtualizer from './charts/ChartVirtualizer';
+import ChartErrorBoundary from './charts/ChartErrorBoundary';
+import ChartSkeleton   from './charts/ChartSkeleton';
 import { PRESET_QUERIES } from '../data/dbSimulator';
+
+// Lazy-load ChartRouter so Recharts is not in the initial bundle.
+// Only fetched when the first chart result arrives.
+const ChartRouter = lazy(() => import('./charts/ChartRouter'));
 
 /* ─── Markdown-lite renderer ────────────────────────────────── */
 function renderSummary(text) {
@@ -25,7 +33,6 @@ function renderSummary(text) {
 function ThinkingIndicator({ steps }) {
   const [statusIndex, setStatusIndex] = useState(0);
 
-  // Cycle through status messages
   useEffect(() => {
     if (!steps || steps.length === 0) return;
     setStatusIndex(steps.length - 1);
@@ -34,8 +41,6 @@ function ThinkingIndicator({ steps }) {
   const currentStatus = steps && steps.length > 0
     ? steps[statusIndex]?.text ?? ''
     : 'Thinking…';
-
-  // Strip the leading ▶ or ✔ symbol
   const cleanStatus = currentStatus.replace(/^[▶✔]\s*/, '');
 
   return (
@@ -45,13 +50,11 @@ function ThinkingIndicator({ steps }) {
         <Bot size={15} className="text-white" />
       </div>
       <div className="flex items-center gap-3 pt-1.5">
-        {/* 3 bouncing dots */}
         <div className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-indigo-400 dot-1" />
           <span className="w-2 h-2 rounded-full bg-indigo-400 dot-2" />
           <span className="w-2 h-2 rounded-full bg-indigo-400 dot-3" />
         </div>
-        {/* Status text */}
         <span key={cleanStatus} className="text-xs text-slate-500 status-text">
           {cleanStatus}
         </span>
@@ -82,6 +85,27 @@ function UserMessage({ msg }) {
 
 /* ─── Assistant bubble ───────────────────────────────────────── */
 function AssistantMessage({ msg, onToggleSQL }) {
+  // viewMode: 'chart' shows the auto-selected chart; 'table' shows raw DataTable
+  const [viewMode, setViewMode] = useState('chart');
+
+  // Determine whether a chart is available and non-trivial
+  const hasChart = msg.chartSpec &&
+                   msg.chartSpec.chart_type !== 'table' &&
+                   msg.chartSpec.chart_type !== 'empty_state';
+
+  const isEmptyState = msg.chartSpec?.chart_type === 'empty_state';
+  const showTable    = !hasChart || viewMode === 'table';
+  const hasTableData = msg.tableData?.columns?.length > 0;
+
+  // DataTable element — reused by both normal render and ChartErrorBoundary fallback
+  const dataTableEl = hasTableData ? (
+    <DataTable
+      columns={msg.tableData.columns}
+      rows={msg.tableData.rows}
+      queryLabel={msg.text?.slice(0, 30) || 'results'}
+    />
+  ) : null;
+
   return (
     <div className="flex items-start gap-3 animate-slide-in max-w-4xl">
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-500
@@ -90,12 +114,13 @@ function AssistantMessage({ msg, onToggleSQL }) {
       </div>
 
       <div className="flex-1 min-w-0">
+        {/* Header row */}
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-semibold text-indigo-400">RevIntel AI</span>
           <span className="text-[10px] text-slate-600">{msg.timestamp}</span>
         </div>
 
-        {/* Summary */}
+        {/* Executive Summary */}
         <div className="rounded-2xl rounded-tl-sm border border-slate-700/50
                         bg-slate-900/80 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700/40
@@ -108,7 +133,41 @@ function AssistantMessage({ msg, onToggleSQL }) {
           </div>
         </div>
 
-        {/* SQL viewer */}
+        {/* ── Chart toggle strip (only when a real chart is available) ── */}
+        {hasChart && (
+          <ChartToggleBar viewMode={viewMode} onChange={setViewMode} />
+        )}
+
+        {/* ── Chart area ─────────────────────────────────────────────── */}
+        {hasChart && viewMode === 'chart' && (
+          <ChartVirtualizer>
+            <ChartErrorBoundary fallbackElement={dataTableEl}>
+              <Suspense fallback={<ChartSkeleton />}>
+                <ChartRouter chartSpec={msg.chartSpec} />
+              </Suspense>
+            </ChartErrorBoundary>
+          </ChartVirtualizer>
+        )}
+
+        {/* ── Empty state (0 rows returned) ──────────────────────────── */}
+        {isEmptyState && (
+          <Suspense fallback={<ChartSkeleton />}>
+            <ChartRouter chartSpec={msg.chartSpec} />
+          </Suspense>
+        )}
+
+        {/* ── "Data table view" label (no chart available) ───────────── */}
+        {!hasChart && !isEmptyState && hasTableData && (
+          <div className="flex items-center gap-1.5 mt-3 mb-1">
+            <BarChart2 size={11} className="text-slate-500" />
+            <span className="text-xs text-slate-500">Data table view</span>
+          </div>
+        )}
+
+        {/* ── Data table ─────────────────────────────────────────────── */}
+        {showTable && dataTableEl}
+
+        {/* ── SQL viewer ─────────────────────────────────────────────── */}
         {msg.sql && (
           <SQLViewer
             sql={msg.sql}
@@ -118,23 +177,14 @@ function AssistantMessage({ msg, onToggleSQL }) {
           />
         )}
 
-        {/* Data table */}
-        {msg.tableData?.columns?.length > 0 && (
-          <DataTable
-            columns={msg.tableData.columns}
-            rows={msg.tableData.rows}
-            queryLabel={msg.text?.slice(0, 30) || 'results'}
-          />
-        )}
-
-        {/* Feedback */}
+        {/* ── Feedback ───────────────────────────────────────────────── */}
         <FeedbackButtons msg={msg} onToggleSQL={onToggleSQL} />
       </div>
     </div>
   );
 }
 
-/* ─── Empty state ────────────────────────────────────────────── */
+/* ─── Empty state (no conversation yet) ─────────────────────── */
 function EmptyState({ onSelectQuery }) {
   return (
     <div className="flex flex-col items-center justify-center h-full px-8 text-center animate-fade-in">
@@ -146,8 +196,6 @@ function EmptyState({ onSelectQuery }) {
       <p className="text-slate-500 text-sm max-w-sm mb-8 leading-relaxed">
         Type a business question and get instant SQL-powered insights with executive summaries.
       </p>
-
-      {/* Sample queries */}
       <div className="flex flex-wrap justify-center gap-2 max-w-lg">
         {PRESET_QUERIES.map((p, i) => (
           <button
@@ -166,7 +214,7 @@ function EmptyState({ onSelectQuery }) {
   );
 }
 
-/* ─── Main ───────────────────────────────────────────────────── */
+/* ─── Main export ────────────────────────────────────────────── */
 export default function ChatArea({ messages, isQuerying, loadingSteps, onToggleSQL, onSelectQuery }) {
   const bottomRef = useRef(null);
 
@@ -187,12 +235,7 @@ export default function ChatArea({ messages, isQuerying, loadingSteps, onToggleS
               ? <UserMessage    key={msg.id} msg={msg} />
               : <AssistantMessage key={msg.id} msg={msg} onToggleSQL={onToggleSQL} />
           )}
-
-          {/* Gemini-style loader */}
-          {isQuerying && (
-            <ThinkingIndicator steps={loadingSteps} />
-          )}
-
+          {isQuerying && <ThinkingIndicator steps={loadingSteps} />}
           <div ref={bottomRef} />
         </div>
       )}
