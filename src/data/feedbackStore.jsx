@@ -83,7 +83,7 @@ export function FeedbackProvider({ children }) {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `revIntel-feedback-${Date.now()}.json`;
+    a.download = `queryMitra-feedback-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [state]);

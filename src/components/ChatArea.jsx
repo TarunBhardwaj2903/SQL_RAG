@@ -116,7 +116,7 @@ function AssistantMessage({ msg, onToggleSQL }) {
       <div className="flex-1 min-w-0">
         {/* Header row */}
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-semibold text-indigo-400">RevIntel AI</span>
+          <span className="text-xs font-semibold text-indigo-400">Query Mitra AI</span>
           <span className="text-[10px] text-slate-600">{msg.timestamp}</span>
         </div>
 

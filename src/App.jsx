@@ -147,7 +147,7 @@ export default function App() {
         {/* ── Top bar ─────────────────────────────────────── */}
         <header className="flex items-center justify-between px-6 py-3 border-b border-slate-800
                            bg-slate-900/50 shrink-0">
-          <span className="text-sm font-semibold text-slate-300">Executive Sales Intelligence</span>
+          <span className="text-sm font-semibold text-slate-300">Query Mitra</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold
                            bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
             LIVE
