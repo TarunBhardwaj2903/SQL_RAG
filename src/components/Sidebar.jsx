@@ -16,8 +16,8 @@ export default function Sidebar({ history, onSelectQuery, onNewChat, isQuerying 
             <Database size={15} className="text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white tracking-tight">RevIntel</h1>
-            <p className="text-[10px] text-slate-500">Sales Intelligence</p>
+            <h1 className="text-sm font-bold text-white tracking-tight">Query Mitra</h1>
+            <p className="text-[10px] text-slate-500">Your Data Friend</p>
           </div>
         </div>
       </div>
