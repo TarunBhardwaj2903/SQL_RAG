@@ -46,7 +46,7 @@ export default function Sidebar({ history, onSelectQuery, onNewChat, isQuerying 
               Recent
             </p>
             <div className="flex flex-col gap-0.5">
-              {history.slice(0, 8).map((item, i) => (
+              {history.slice(0, 8).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => onSelectQuery(item.query)}
@@ -56,7 +56,12 @@ export default function Sidebar({ history, onSelectQuery, onNewChat, isQuerying 
                              disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   <Clock size={11} className="shrink-0 text-slate-600" />
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate flex-1">{item.label}</span>
+                  {item.messageCount > 1 && (
+                    <span className="shrink-0 text-[9px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded-full">
+                      {item.messageCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

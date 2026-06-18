@@ -20,9 +20,17 @@ export const getLoadingSteps = () => [
 ];
 
 // ─── Main query resolver ───────────────────────────────────────────────────
-export async function resolveQuery(query) {
+/**
+ * Resolve a natural language query against the backend.
+ *
+ * @param {string} query        - The user's current question.
+ * @param {Array}  chatHistory  - Prior conversation turns to send as context.
+ *                                Each entry: { role: 'user'|'assistant', content: string, sql?: string }
+ *                                Pass [] (default) for the first message.
+ */
+export async function resolveQuery(query, chatHistory = []) {
   try {
-    const data = await queryBackend(query);
+    const data = await queryBackend(query, chatHistory);
     return {
       sql:       data.sql,
       summary:   data.summary,

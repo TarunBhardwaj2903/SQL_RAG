@@ -18,7 +18,16 @@ export default function App() {
   const [inputText,    setInputText]    = useState('');
   const [isQuerying,   setIsQuerying]   = useState(false);
   const [loadingSteps, setLoadingSteps] = useState([]);
-  const textareaRef = useRef(null);
+  const textareaRef   = useRef(null);
+  // Always-current mirror of messages state — avoids stale closure in handleQuery.
+  const messagesRef   = useRef([]);
+  // Tracks the current session's history entry id.
+  // null = no session yet (new chat or first load). Set on the first query of a session.
+  // Each session maps to exactly ONE entry in the sidebar "Recent" list.
+  const sessionIdRef  = useRef(null);
+
+  // Keep messagesRef in sync with messages state on every render
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -37,6 +46,17 @@ export default function App() {
     setIsQuerying(true);
     setLoadingSteps([]);
 
+    // ── Build chat history from the current messages BEFORE adding the new user message.
+    // We read from messagesRef.current (not the stale closure variable) so we always
+    // get the latest messages regardless of when this callback was last memoised.
+    // Cap at last 10 messages (5 Q&A pairs) to stay within LLM context budget.
+    const chatHistory = messagesRef.current
+      .slice(-10)
+      .map(m => m.sender === 'user'
+        ? { role: 'user',      content: m.text }
+        : { role: 'assistant', content: m.summary ?? '', sql: m.sql ?? null }
+      );
+
     // Add user message
     const userMsg = {
       id:        uid(),
@@ -46,12 +66,31 @@ export default function App() {
     };
     setMessages(prev => [...prev, userMsg]);
 
-    // Add to sidebar history
-    const shortLabel = query.length > 42 ? query.slice(0, 42) + '…' : query;
-    setHistory(prev => [
-      { id: uid(), label: shortLabel, query },
-      ...prev.slice(0, 19),
-    ]);
+    // ── Session management: one sidebar entry per conversation ──
+    // If this is the first message in a new session, create a history entry and
+    // record its id in sessionIdRef. All subsequent messages in this session
+    // update the SAME entry (incrementing the message count) instead of creating
+    // new entries. A new session starts only when the user clicks "New Analysis".
+    if (sessionIdRef.current === null) {
+      // First message of a new session — create the sidebar entry
+      const sessionId   = uid();
+      const shortLabel  = query.length > 42 ? query.slice(0, 42) + '…' : query;
+      sessionIdRef.current = sessionId;
+      setHistory(prev => [
+        { id: sessionId, label: shortLabel, query, messageCount: 1 },
+        ...prev.slice(0, 19),
+      ]);
+    } else {
+      // Follow-up message — increment the message count on the existing entry
+      const currentSessionId = sessionIdRef.current;
+      setHistory(prev =>
+        prev.map(h =>
+          h.id === currentSessionId
+            ? { ...h, messageCount: (h.messageCount ?? 1) + 1 }
+            : h
+        )
+      );
+    }
 
     try {
       // Reveal loading steps progressively
@@ -61,8 +100,8 @@ export default function App() {
         setLoadingSteps(prev => [...prev, { text: step.text, color: step.color }]);
       }
 
-      // Fetch result
-      const result = await resolveQuery(query);
+      // Fetch result — pass chat history so the LLM can handle follow-up questions
+      const result = await resolveQuery(query, chatHistory);
 
       // Add assistant message
       const assistantMsg = {
@@ -122,12 +161,14 @@ export default function App() {
     );
   }, []);
 
-  // ── New chat ────────────────────────────────────────────────
+  // ── New chat ───────────────────────────────────────────
   const handleNewChat = useCallback(() => {
     if (isQuerying) return;
     setMessages([]);
     setLoadingSteps([]);
     setInputText('');
+    // Reset session so the next query creates a fresh sidebar entry
+    sessionIdRef.current = null;
   }, [isQuerying]);
 
   return (
