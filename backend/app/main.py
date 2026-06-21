@@ -49,7 +49,10 @@ app = FastAPI(
     title="Text-to-SQL Agent API",
     description="Enterprise Text-to-SQL agent for B2B Revenue Operations using FastAPI and LangChain",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # Disable interactive docs in production to avoid exposing the full API surface
+    docs_url="/docs" if settings.LOG_LEVEL.upper() == "DEBUG" else None,
+    redoc_url=None,
 )
 
 # Allowed origins — add your Vercel frontend URL here after deployment

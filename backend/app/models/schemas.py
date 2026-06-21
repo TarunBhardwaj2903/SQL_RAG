@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Optional, Any
+from pydantic import BaseModel, Field
+from typing import List, Literal, Optional, Any
 
 
 # ── Conversation turn ──────────────────────────────────────────────────────
@@ -11,15 +11,15 @@ class ConversationTurn(BaseModel):
     - content: the user question, or the assistant's plain-text summary
     - sql:     the SQL generated for this turn (assistant turns only, optional)
     """
-    role: str
-    content: str
-    sql: Optional[str] = None
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=4000)
+    sql: Optional[str] = Field(None, max_length=5000)
 
 
 # ── Existing models ────────────────────────────────────────────────────────
 
 class QueryRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=2000)
     chat_history: List[ConversationTurn] = []   # empty = first message (backward-compat)
 
 

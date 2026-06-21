@@ -1,5 +1,18 @@
+# =============================================================================
+# SQL RAG — .gitignore
+# =============================================================================
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Vite build artifacts
+*.timestamp-*.mjs
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,42 +20,31 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment variables (CRITICAL - DO NOT COMMIT)
+# ── Environment variables (NEVER commit these) ────────────────────────────────
+# .env.example IS intentionally tracked (it contains placeholder values only)
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+# Explicitly protect the backend env
 backend/.env
 backend/.env.local
-**/.env
+backend/.env.*.local
 
-# Documentation (contains development notes)
-docs/
-
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
 .Python
+
+# Build artifacts
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -52,43 +54,72 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-backend/app/__pycache__/
-backend/app/**/__pycache__/
+MANIFEST
 
-# Vite build artifacts
-*.timestamp-*.mjs
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.virtualenv/
 
-# Database
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# ── Database ──────────────────────────────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
 
-# Temporary files
+# ── Temporary / Cache ─────────────────────────────────────────────────────────
 *.tmp
 *.temp
 .cache/
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-*.swp
-*.swo
+desktop.ini
 
-# IDE
-.vscode/
+# ── Editor / IDE ──────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.sublime-project
 *.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+# ── Kiro IDE (internal spec/steering files — not for public repos) ────────────
+.kiro/
 
-# Documentation (temporary files)
+# ── Markdown — ignore internal docs, keep public-facing ones ─────────────────
+# Keep: README.md, SECURITY.md, CONTRIBUTING.md (already tracked)
+# Ignore all other .md files (dev notes, kiro specs, temp docs)
+docs/
 *_TEMP.md
 *_OLD.md

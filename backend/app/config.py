@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # e.g. https://sql-rag.vercel.app
     FRONTEND_URL: str = ""
 
+    # Admin endpoint protection
+    # Set a random secret in .env — required to call POST /api/admin/refresh-schema
+    ADMIN_SECRET_KEY: str = Field("", validation_alias="ADMIN_SECRET_KEY")
+
     model_config = SettingsConfigDict(
         env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",

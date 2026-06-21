@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from app.models.schemas import QueryRequest, QueryResponse
 from app.services.database import DatabaseService, get_db_service
 from app.agents.llm_client import LLMClient
@@ -100,17 +100,21 @@ async def query_endpoint(
     except HTTPException as he:
         raise he
     except Exception as e:
+        logger.error(f"Unhandled error in /api/query: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while processing the query: {str(e)}"
+            detail="An internal error occurred while processing your query. Please try again."
         )
 
 
 @router.post("/admin/refresh-schema")
-async def refresh_schema_endpoint():
+async def refresh_schema_endpoint(x_admin_token: str = Header(None, alias="X-Admin-Token")):
     """
     Manually trigger introspection and embedding of the database schema.
+    Requires the X-Admin-Token header to match the ADMIN_SECRET_KEY env variable.
     """
+    if not settings.ADMIN_SECRET_KEY or x_admin_token != settings.ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden: invalid or missing admin token.")
     try:
         from app.services.schema_ingestor import run_ingestion
         count = await run_ingestion()
