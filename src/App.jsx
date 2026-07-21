@@ -93,15 +93,18 @@ export default function App() {
     }
 
     try {
-      // Reveal loading steps progressively
+      // Start the API call immediately — don't wait for the animation
+      const resultPromise = resolveQuery(query, chatHistory);
+
+      // Run the animation concurrently as visual feedback while the API is working
       const steps = getLoadingSteps();
       for (const step of steps) {
         await new Promise(r => setTimeout(r, step.delay - (steps[0]?.delay ?? 0)));
         setLoadingSteps(prev => [...prev, { text: step.text, color: step.color }]);
       }
 
-      // Fetch result — pass chat history so the LLM can handle follow-up questions
-      const result = await resolveQuery(query, chatHistory);
+      // Now wait for the actual result (API call started well before the animation finished)
+      const result = await resultPromise;
 
       // Add assistant message
       const assistantMsg = {

@@ -35,13 +35,15 @@ class LLMClient:
             api_key=api_key,
             base_url=api_base,
             model=settings.OPENAI_MODEL,
-            temperature=0.0
+            temperature=0.0,
+            request_timeout=90,   # 90s max for SQL generation
         )
         self.llm_summary = ChatOpenAI(
             api_key=api_key,
             base_url=api_base,
             model=settings.OPENAI_MODEL,
-            temperature=0.3
+            temperature=0.3,
+            request_timeout=45,   # 45s max for summary (has fallback)
         )
 
     def _build_messages(self, system_text: str, user_text: str, chat_history: List) -> List:
@@ -129,7 +131,7 @@ class LLMClient:
         if chat_history is None:
             chat_history = []
 
-        sample_rows = "\n".join([str(row) for row in rows[:10]]) or "No rows returned."
+        sample_rows = "\n".join([str(row) for row in rows[:5]]) or "No rows returned."
 
         system_text = SUMMARY_SYSTEM_PROMPT  # No placeholders — static prompt
         user_text   = SUMMARY_USER_PROMPT.format(

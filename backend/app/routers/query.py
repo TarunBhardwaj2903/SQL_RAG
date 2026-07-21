@@ -1,10 +1,13 @@
+import logging
+import re
 from fastapi import APIRouter, Depends, Header, HTTPException
 from app.models.schemas import QueryRequest, QueryResponse
 from app.services.database import DatabaseService, get_db_service
 from app.agents.llm_client import LLMClient
 from app.agents.sql_agent import execute_with_self_correction
 from app.config import settings
-import re
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
