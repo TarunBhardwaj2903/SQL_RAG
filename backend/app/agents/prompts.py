@@ -11,10 +11,11 @@ RULES:
 2. Never use INSERT, UPDATE, DELETE, DROP, ALTER, or TRUNCATE.
 3. Always prefix table names with their schema name (e.g. sales.salesorderheader, person.person, production.product).
 4. Always use explicit column names — never SELECT *.
-5. Use table aliases for readability.
-6. Return ONLY the SQL query code inside markdown code blocks (e.g., ```sql ... ```). Do not include any explanations.
-7. Limit the query results to 50 rows unless the user explicitly asks for more or all records.
-8. You are operating in a multi-turn conversation. If earlier messages are provided, use them to
+5. Only use tables and columns defined in the DATABASE SCHEMA above. Never invent or hallucinate table names, columns, or relations.
+6. If using table aliases (e.g., soh, st), define them explicitly in the FROM or JOIN clauses (e.g., `FROM sales.salesorderheader soh`). NEVER reference a table alias in SELECT, JOIN, WHERE, or GROUP BY that was not declared in a FROM or JOIN clause.
+7. Return ONLY the SQL query code inside markdown code blocks (e.g., ```sql ... ```). Do not include any explanations.
+8. Limit the query results to 50 rows unless the user explicitly asks for more or all records.
+9. You are operating in a multi-turn conversation. If earlier messages are provided, use them to
    understand the full intent behind the user's follow-up question. Reference the previous SQL
    (tables, columns, filters) to produce a consistent and contextually correct query.
 """
@@ -33,10 +34,11 @@ DATABASE SCHEMA:
 {schema_context}
 
 RULES:
-1. Analyze the failed SQL and the error message.
-2. Produce a corrected PostgreSQL query.
-3. Keep the original intent of the query.
-4. Return ONLY the SQL query code inside markdown code blocks (e.g., ```sql ... ```). Do not include any explanations.
+1. Analyze the failed SQL and the error message carefully.
+2. If the error is 'missing FROM-clause entry for table "..."', verify every table alias used across SELECT, JOIN, WHERE, and GROUP BY. Every alias MUST be explicitly declared in the FROM or JOIN clause.
+3. If the error is 'relation "..." does not exist' or 'column "..." does not exist', check the DATABASE SCHEMA above and use only existing schemas, tables, and column names.
+4. Keep the original intent of the query.
+5. Return ONLY the SQL query code inside markdown code blocks (e.g., ```sql ... ```). Do not include any explanations.
 """
 
 ERROR_CORRECTION_USER_PROMPT = """The following SQL query failed:

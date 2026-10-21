@@ -135,32 +135,35 @@ async def run_ingestion() -> int:
     try:
         # Process in batches to respect rate limits (40 RPM)
         # We can do 5 tables at a time
-        batch_size = 5
+        batch_size = 10
         table_keys = list(tables_meta.keys())
         success_count = 0
+        total_batches = ((len(table_keys) - 1) // batch_size) + 1
         
         for i in range(0, len(table_keys), batch_size):
             batch_keys = table_keys[i:i+batch_size]
-            logger.info(f"Processing batch {i // batch_size + 1}/{((len(table_keys) - 1) // batch_size) + 1}...")
+            current_batch_num = (i // batch_size) + 1
+            logger.info(f"Processing batch {current_batch_num}/{total_batches} ({len(batch_keys)} tables)...")
 
+            batch_meta = []
+            batch_texts = []
             for key in batch_keys:
                 table_info = tables_meta[key]
-                schema_name = table_info['schema']
-                table_name = table_info['table']
-                schema_text = format_table_description(table_info)
+                s_name = table_info['schema']
+                t_name = table_info['table']
+                s_text = format_table_description(table_info)
+                batch_meta.append((s_name, t_name, s_text))
+                batch_texts.append(s_text)
 
-                logger.info(f"Generating embedding for {schema_name}.{table_name}...")
-                
-                # Call NVIDIA embedding NIM API
-                response = await openai_client.embeddings.create(
-                    input=[schema_text],
-                    model=settings.NVIDIA_EMBED_MODEL,
-                    extra_body={"input_type": "passage"}
-                )
-                embedding = response.data[0].embedding
+            # Call NVIDIA embedding NIM API in a single batch request
+            response = await openai_client.embeddings.create(
+                input=batch_texts,
+                model=settings.NVIDIA_EMBED_MODEL,
+                extra_body={"input_type": "passage"}
+            )
 
-                logger.info(f"Saving {schema_name}.{table_name} embedding to database...")
-                # Insert / Update
+            for (s_name, t_name, s_text), data_item in zip(batch_meta, response.data):
+                embedding = data_item.embedding
                 await conn.execute("""
                     INSERT INTO rag.schema_embeddings (schema_name, table_name, schema_text, embedding)
                     VALUES ($1, $2, $3, $4::extensions.vector)
@@ -169,13 +172,12 @@ async def run_ingestion() -> int:
                         schema_text = EXCLUDED.schema_text,
                         embedding = EXCLUDED.embedding,
                         updated_at = NOW();
-                """, schema_name, table_name, schema_text, str(embedding))
+                """, s_name, t_name, s_text, str(embedding))
                 success_count += 1
 
-            # Sleep briefly between batches to avoid hitting rate limits
+            # Brief pause between batches
             if i + batch_size < len(table_keys):
-                logger.info("Sleeping for 2 seconds to avoid rate limits...")
-                await asyncio.sleep(2.0)
+                await asyncio.sleep(1.0)
 
         logger.info(f"All {success_count} table schemas ingested and embedded successfully!")
         return success_count

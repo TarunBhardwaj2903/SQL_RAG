@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.services.database import db_service
 from app.routers.query import router as query_router
+from app.routers.files import router as files_router
+from app.services.file_session_store import start_cleanup_loop
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +21,7 @@ import asyncio
 async def lifespan(app: FastAPI):
     # Startup actions
     logger.info("Starting up FastAPI application...")
+    cleanup_task = asyncio.create_task(start_cleanup_loop())
     try:
         await db_service.initialize()
         
@@ -43,6 +46,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown actions
     logger.info("Shutting down FastAPI application...")
+    cleanup_task.cancel()
     await db_service.close()
 
 app = FastAPI(
@@ -73,6 +77,7 @@ app.add_middleware(
 
 # Register routers
 app.include_router(query_router, prefix="/api")
+app.include_router(files_router, prefix="/api/files")
 
 @app.get("/api/health")
 async def health_check():
